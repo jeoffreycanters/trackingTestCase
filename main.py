@@ -17,9 +17,9 @@ def createHeateMap(playerNumber, matchPeriod, matchNumber, team, fileFormat):
 
     df = df[df['IdPeriod'] == matchPeriod]
 
-    customcmap = matplotlib.colors.LinearSegmentedColormap.from_list('custom cmap', ['black', 'red'])
+    customcmap = matplotlib.colors.LinearSegmentedColormap.from_list('custom cmap', ['#030F37', '#AFF500'])
 
-    pitch = mplsoccer.Pitch(pitch_type='impect', pitch_color='black', line_color='white', pitch_length=105, pitch_width=68, axis=True, line_zorder=2)
+    pitch = mplsoccer.Pitch(pitch_type='impect', pitch_color='#030F37', line_color='white', pitch_length=105, pitch_width=68, axis=True, line_zorder=2)
 
     fig_width = 10
     fig_height = fig_width*(68/105)
@@ -49,7 +49,6 @@ def calcDistanceTraveled(playerNumber, matchNumber, team, fileFormat):
 
     return total_distance_km
 
-
 #createHeateMap(120, 1, 1, 'Home', 'csv')
-total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
-print(f"Total Distance Traveled: {total_distance_km:.2f} km")
+#total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
+#print(f"Total Distance Traveled: {total_distance_km:.2f} km")
