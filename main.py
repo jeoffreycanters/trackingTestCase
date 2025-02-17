@@ -49,6 +49,29 @@ def calcDistanceTraveled(playerNumber, matchNumber, team, fileFormat):
 
     return total_distance_km
 
-#createHeateMap(120, 1, 1, 'Home', 'csv')
+def calcTotalTouches(playerNumber, matchNumber, team, fileFormat):
+    if (fileFormat == 'xlsx'):
+        df = pd.read_excel('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+    elif (fileFormat == 'csv'):
+        df = pd.read_csv('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+    else:
+        raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
+
+    x_col = df[team.lower() + '_' + str(playerNumber) + '_x']
+    y_col = df[team.lower() + '_' + str(playerNumber) + '_y']
+    ball_x_col = df['ball_x']
+    ball_y_col = df['ball_y']
+
+    df['player_touched'] = ((x_col - ball_x_col).abs() <= 5) & ((y_col - ball_y_col).abs() <= 5)
+
+    total_touches = df['player_touched'].sum()
+
+    print('Total touches: ' + str(total_touches))
+
+
+
+
+createHeateMap(120, 1, 1, 'Home', 'csv')
 #total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
 #print(f"Total Distance Traveled: {total_distance_km:.2f} km")
+#calcTotalTouches(827, 1, 'Home', 'csv')
