@@ -104,9 +104,51 @@ def calcTotalShots(team, matchNumber, fileFormat, matchPeriod):
 
     print(f"Total shots: {filteredTotalShots}")
 
+def calcBallPossession(matchNumber, fileFormat, matchPeriod):
+    teamA = 'Home'
+    teamB = 'Away'
+
+    if (fileFormat == 'xlsx'):
+        dfa = pd.read_excel('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
+        dfb = pd.read_excel('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
+    elif (fileFormat == 'csv'):
+        dfa = pd.read_csv('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
+        dfb = pd.read_csv('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
+    else:
+        raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
+
+    df = pd.merge(dfa, dfb, on=['Time', 'IdPeriod', 'MatchId', 'ball_x', 'ball_y'])
+
+    player_columns = [col for col in df.columns if ('_x' in col and ('home' in col.lower() or 'away' in col.lower()))]
+
+    distances = []
+
+    for col in player_columns:
+        player_team = 'Home' if 'home' in col.lower() else 'Away'
+        player_id = col.split('_')[1]
+        y_col = col.replace('_x', '_y')
+
+        df[f'distance_{player_id}'] = np.sqrt((df[col] - df['ball_x']) ** 2 + (df[y_col] - df['ball_y']) ** 2)
+
+        distances.append((f'distance_{player_id}', player_team))
+
+    distance_cols = [d[0] for d in distances]
+    df['closest_player'] = df[distance_cols].idxmin(axis=1)
+
+    df['possession_team'] = df['closest_player'].apply(
+        lambda x: next((team for dist_col, team in distances if dist_col == x), None)
+    )
+
+    possession_counts = df['possession_team'].value_counts(normalize=True) * 100
+
+    print(possession_counts.to_dict())
+
+
+
 
 #createHeateMap(120, 1, 1, 'Home', 'csv')
 #total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
 #print(f"Total Distance Traveled: {total_distance_km:.2f} km")
 #calcTotalTouches(827, 1, 'Home', 'csv')
 #calcTotalShots('Home', 2, 'csv', 1)
+calcBallPossession(1, 'csv', 1)
