@@ -143,12 +143,92 @@ def calcBallPossession(matchNumber, fileFormat, matchPeriod):
 
     print(possession_counts.to_dict())
 
+def createPassingMap(playerNumber, matchPeriod, matchNumber, teamA, fileFormat, type):
+    if (teamA == 'Home'):
+        teamB = 'Away'
+    elif (teamA == 'Away'):
+        teamB = 'Home'
+    else:
+        raise ValueError("Unsupported team. Use 'Home' or 'Away'.")
 
+    if (fileFormat == 'xlsx'):
+        dfa = pd.read_excel('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
+        dfb = pd.read_excel('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
+    elif (fileFormat == 'csv'):
+        dfa = pd.read_csv('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
+        dfb = pd.read_csv('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
+    else:
+        raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
+    df = pd.merge(dfa, dfb, on=['Time', 'IdPeriod', 'MatchId', 'ball_x', 'ball_y'])
+    df = df[df['IdPeriod'] == matchPeriod]
+
+    player_columns = [col for col in df.columns if ('_x' in col and ('home' in col.lower() or 'away' in col.lower()))]
+    teamA_players = list(set([col.split('_')[1] for col in player_columns if teamA.lower() in col.lower()]))
+    teamB_players = list(set([col.split('_')[1] for col in player_columns if teamB.lower() in col.lower()]))
+
+    events = {
+        'passes': [],
+        'blocks': []
+    }
+
+    distances = {}
+
+    for col in player_columns:
+        y_col = col.replace('_x', '_y')
+        player_name = col.split('_')[1]
+        df[f'distance_{player_name}'] = np.sqrt((df[col] - df['ball_x']) ** 2 + (df[y_col] - df['ball_y']) ** 2)
+        distances[player_name] = f'distance_{player_name}'
+
+    df['closest_player'] = df[list(distances.values())].idxmin(axis=1)
+    df['closest_player'] = df['closest_player'].str.extract(r'distance_(\d+)')
+
+    df['prev_possessor'] = df['closest_player'].shift(1)
+
+    for idx, row in df.iterrows():
+        prev_possessor = row['prev_possessor']
+        current_possessor = row['closest_player']
+
+        if prev_possessor == str(playerNumber) and current_possessor != str(playerNumber):
+            event = {
+                'time': row['Time'],
+                'start_pos': (df.at[idx - 1, f'{teamA.lower()}_{playerNumber}_x'], df.at[idx - 1, f'{teamA.lower()}_{playerNumber}_y']),
+                'end_pos': (row['ball_x'], row['ball_y']),
+                'receiver': current_possessor
+            }
+
+            if current_possessor in teamA_players:
+                events['passes'].append(event)
+            elif current_possessor in teamB_players:
+                events['blocks'].append(event)
+
+    pitch = mplsoccer.Pitch(pitch_type='impect', pitch_color='#030F37', line_color='white', pitch_length=105, pitch_width=68, axis=True)
+
+    fig_width = 10
+    fig_height = fig_width * (68 / 105)
+    fig, ax = pitch.draw(figsize=(fig_width, fig_height))
+
+    if(type == 'passes'):
+        for p in events['passes']:
+            start_x, start_y = p['start_pos']
+            end_x, end_y = p['end_pos']
+
+            pitch.arrows(start_x/100, start_y/100, end_x/100, end_y/100, width=2, headwidth=5, headlength=5, color='#AFF500', ax=ax)
+    elif(type == 'blocks'):
+        for p in events['blocks']:
+            start_x, start_y = p['start_pos']
+            end_x, end_y = p['end_pos']
+
+            pitch.arrows(start_x / 100, start_y / 100, end_x / 100, end_y / 100, width=2, headwidth=5, headlength=5, color='red', ax=ax)
+    else:
+        raise ValueError('Unrecognized type')
+
+    plt.show()
 
 #createHeateMap(120, 1, 1, 'Home', 'csv')
 #total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
 #print(f"Total Distance Traveled: {total_distance_km:.2f} km")
 #calcTotalTouches(827, 1, 'Home', 'csv')
 #calcTotalShots('Home', 2, 'csv', 1)
-calcBallPossession(1, 'csv', 1)
+#calcBallPossession(1, 'csv', 1)
+#createPassingMap(120, 1, 1, 'Home', 'csv', 'blocks')
