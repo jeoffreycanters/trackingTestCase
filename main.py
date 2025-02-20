@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import mplsoccer
 import numpy as np
 from typing import Dict, List, Literal, Tuple
+import argparse
+import json
+
 
 
 # Pitch dimensions: 105m x 68m
@@ -245,13 +248,39 @@ def create_passing_map(
     plt.show()
 
 
-#create_heatmap(120, 1, 1, 'Home', 'csv')
-#total_distance_km = calculate_distance_traveled(364, 0, 'Away', 'xlsx')
-#print(f"Total Distance Traveled: {total_distance_km:.2f} km")
-#total_touches = calculate_total_touches(827, 1, 'Home', 'csv')
-#print("Total Touches: ", total_touches)
-#total_shots = calculate_total_shots('Home', 2, 'csv', 1)
-#print("Total shots: ", total_shots)
-#ball_possession = calculate_ball_possession(1, 'csv')
-#print("Ball possession: ", ball_possession)
-#create_passing_map(120, 1, 1, 'Home', 'csv', 'passes')
+def create_summary_json(player_number, match_period, match_number, team, file_format, event_type):
+    summary_data = {}
+
+    summary_data["player_number"] = player_number
+    summary_data["match_period"] = match_period
+    summary_data["match_number"] = match_number
+    summary_data["team"] = team
+    summary_data["file_format"] = file_format
+    summary_data["event_type"] = event_type
+
+    summary_data["total_distance_km"] = calculate_distance_traveled(player_number, match_number, team, file_format)
+    summary_data["total_touches"] = calculate_total_touches(player_number, match_number, team, file_format)
+    summary_data["total_shots"] = calculate_total_shots(team, match_number, file_format, match_period)
+    summary_data["ball_possession"] = calculate_ball_possession(match_number, file_format)
+
+    with open(f"match_summary_{match_number}.json", "w") as json_file:
+        json.dump(summary_data, json_file, indent=4)
+
+    print(f"Summary saved to match_summary_{match_number}.json")
+
+def main(player_number: int, match_period: int, match_number: int, team: Literal["Home", "Away"], file_format: Literal["csv", "xlsx"], event_type: str):
+    create_heatmap(player_number, match_period, match_number, team, file_format)
+    create_passing_map(player_number, match_period, match_number, team, file_format, event_type)
+    create_summary_json(player_number, match_period, match_number, team, file_format, event_type)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Analyze football match data.")
+    parser.add_argument("--player", type=int, required=True, help="Player number")
+    parser.add_argument("--period", type=int, required=True, help="Match period")
+    parser.add_argument("--match", type=int, required=True, help="Match number")
+    parser.add_argument("--team", type=str, choices=["Home", "Away"], required=True, help="Team name")
+    parser.add_argument("--format", type=str, choices=["csv", "xlsx"], required=True, help="File format")
+    parser.add_argument("--type", type=str, choices=["passes", "blocks"], required=True, help="Event type")
+
+    args = parser.parse_args()
+    main(args.player, args.period, args.match, args.team, args.format, args.type)
