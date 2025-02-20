@@ -1,234 +1,257 @@
 import pandas as pd
 import matplotlib
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import mplsoccer
 import numpy as np
+from typing import Dict, List, Literal, Tuple
 
-#pitch 105m by 68m
 
-def createHeateMap(playerNumber, matchPeriod, matchNumber, team, fileFormat):
-    if(fileFormat == 'xlsx'):
-        df = pd.read_excel('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
-    elif(fileFormat == 'csv'):
-        df = pd.read_csv('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+# Pitch dimensions: 105m x 68m
+
+def create_heatmap(player_number: int, match_period: int, match_number: int, team: Literal["Home", "Away"], file_format: Literal["csv", "xlsx"]) -> None:
+    """Generate and display a heatmap for a player's movement."""
+    file_path = f'match_{match_number}/{team}.{file_format}'
+
+    if file_format == 'xlsx':
+        df = pd.read_excel(file_path)
+    elif file_format == 'csv':
+        df = pd.read_csv(file_path)
     else:
         raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
-    df = df[df['IdPeriod'] == matchPeriod]
+    df = df[df['IdPeriod'] == match_period]
 
-    customcmap = matplotlib.colors.LinearSegmentedColormap.from_list('custom cmap', ['#030F37', '#AFF500'])
+    custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('custom_cmap', ['#030F37', '#AFF500'])
 
-    pitch = mplsoccer.Pitch(pitch_type='impect', pitch_color='#030F37', line_color='white', pitch_length=105, pitch_width=68, axis=True, line_zorder=2)
+    pitch = mplsoccer.Pitch(
+        pitch_type='impect', pitch_color='#030F37', line_color='white',
+        pitch_length=105, pitch_width=68, axis=True, line_zorder=2
+    )
 
     fig_width = 10
-    fig_height = fig_width*(68/105)
+    fig_height = fig_width * (68 / 105)
 
     fig, ax = pitch.draw(figsize=(fig_width, fig_height))
-    pitch.kdeplot(df[team.lower() + '_' + str(playerNumber) + '_x']/100, df[team.lower() + '_' + str(playerNumber) + '_y']/100, ax=ax, cmap=customcmap, fill=True, n_levels=100, zorder=1)
+    pitch.kdeplot(
+        df[f'{team.lower()}_{player_number}_x'] / 100,
+        df[f'{team.lower()}_{player_number}_y'] / 100,
+        ax=ax, cmap=custom_cmap, fill=True, n_levels=100, zorder=1
+    )
     fig.set_facecolor('black')
 
     plt.show()
 
-def calcDistanceTraveled(playerNumber, matchNumber, team, fileFormat):
-    if (fileFormat == 'xlsx'):
-        df = pd.read_excel('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
-    elif (fileFormat == 'csv'):
-        df = pd.read_csv('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+
+def calculate_distance_traveled(player_number: int, match_number: int, team: Literal["Home", "Away"], file_format: Literal["csv", "xlsx"]) -> float:
+    """Calculate the total distance traveled by a player in kilometers."""
+    file_path = f'match_{match_number}/{team}.{file_format}'
+
+    if file_format == 'xlsx':
+        df = pd.read_excel(file_path)
+    elif file_format == 'csv':
+        df = pd.read_csv(file_path)
     else:
         raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
-    x_col = df[team.lower() + '_' + str(playerNumber) + '_x']/100
-    y_col = df[team.lower() + '_' + str(playerNumber) + '_y']/100
+    x_col = df[f'{team.lower()}_{player_number}_x'] / 100
+    y_col = df[f'{team.lower()}_{player_number}_y'] / 100
 
     df['dx'] = x_col.diff()
     df['dy'] = y_col.diff()
     df['step_distance'] = np.sqrt(df['dx'] ** 2 + df['dy'] ** 2)
-    total_distance = df['step_distance'].sum()
-    total_distance_km = round(total_distance/1000)
+    total_distance_km = round(df['step_distance'].sum() / 1000, 2)
 
     return total_distance_km
 
-def calcTotalTouches(playerNumber, matchNumber, team, fileFormat):
-    if (fileFormat == 'xlsx'):
-        df = pd.read_excel('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
-    elif (fileFormat == 'csv'):
-        df = pd.read_csv('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+
+def calculate_total_touches(player_number: int, match_number: int, team: Literal["Home", "Away"], file_format: Literal["csv", "xlsx"]) -> int:
+    """Calculate the total number of touches by a player."""
+    file_path = f'match_{match_number}/{team}.{file_format}'
+
+    if file_format == 'xlsx':
+        df = pd.read_excel(file_path)
+    elif file_format == 'csv':
+        df = pd.read_csv(file_path)
     else:
         raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
-    x_col = df[team.lower() + '_' + str(playerNumber) + '_x']
-    y_col = df[team.lower() + '_' + str(playerNumber) + '_y']
-    ball_x_col = df['ball_x']
-    ball_y_col = df['ball_y']
+    df['player_touched'] = (
+                                   (df[f'{team.lower()}_{player_number}_x'] - df['ball_x']).abs() <= 5
+                           ) & (
+                                   (df[f'{team.lower()}_{player_number}_y'] - df['ball_y']).abs() <= 5
+                           )
 
-    df['player_touched'] = ((x_col - ball_x_col).abs() <= 5) & ((y_col - ball_y_col).abs() <= 5)
+    return int(df['player_touched'].sum())
 
-    total_touches = df['player_touched'].sum()
 
-    print('Total touches: ' + str(total_touches))
+def calculate_total_shots(team: Literal["Home", "Away"], match_number: int, file_format: Literal["csv", "xlsx"], match_period: int) -> int:
+    """Calculate the total number of shots taken by a team."""
+    file_path = f'match_{match_number}/{team}.{file_format}'
 
-def calcTotalShots(team, matchNumber, fileFormat, matchPeriod):
-    if (fileFormat == 'xlsx'):
-        df = pd.read_excel('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
-    elif (fileFormat == 'csv'):
-        df = pd.read_csv('match_' + str(matchNumber) + '/' + team + '.' + fileFormat)
+    if file_format == 'xlsx':
+        df = pd.read_excel(file_path)
+    elif file_format == 'csv':
+        df = pd.read_csv(file_path)
     else:
         raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
-    df = df[df['IdPeriod'] == matchPeriod]
+    df = df[df['IdPeriod'] == match_period]
 
-    trackShot_x = 5250 if (matchPeriod == 1 and team == "Home") or (matchPeriod == 2 and team == "Away") else -5250
-    trackShot_y_a, trackShot_y_b = -366, 366
+    track_shot_x = 5250 if (match_period == 1 and team == "Home") or (match_period == 2 and team == "Away") else -5250
+    track_shot_y_range = (-366, 366)
 
-    ball_x_col = df['ball_x']
-    ball_y_col = df['ball_y']
+    shot_condition = df['ball_x'] >= track_shot_x if track_shot_x > 0 else df['ball_x'] <= track_shot_x
 
-    if trackShot_x > 0:
-        shot_condition = (ball_x_col >= trackShot_x)
-    else:
-        shot_condition = (ball_x_col <= trackShot_x)
+    df['total_shots'] = shot_condition & df['ball_y'].between(*track_shot_y_range)
 
-    df['totalShots'] = ((shot_condition) & ((ball_y_col).between(trackShot_y_a, trackShot_y_b)))
-    shotTimes = df.loc[df['totalShots'], 'Time'].tolist()
-    if shotTimes:
-        filteredShotTimes = [shotTimes[0]]
-    else:
-        filteredShotTimes = []
+    shot_times = df.loc[df['total_shots'], 'Time'].tolist()
+    filtered_shot_times = [shot_times[i] for i in range(len(shot_times)) if
+                           i == 0 or shot_times[i] != shot_times[i - 1] + 10]
 
-    for i in range(1, len(shotTimes)):
-        if shotTimes[i] != shotTimes[i-1] + 10:
-            filteredShotTimes.append(shotTimes[i])
+    return len(filtered_shot_times)
 
-    filteredTotalShots = len(filteredShotTimes)
 
-    print(f"Total shots: {filteredTotalShots}")
+def calculate_ball_possession(match_number: int, file_format: Literal["csv", "xlsx"]) -> Dict[str, float]:
+    """Calculate ball possession percentage for each team."""
+    teams = ['Home', 'Away']
+    dfs = {}
 
-def calcBallPossession(matchNumber, fileFormat, matchPeriod):
-    teamA = 'Home'
-    teamB = 'Away'
+    for team in teams:
+        file_path = f'match_{match_number}/{team}.{file_format}'
+        dfs[team] = pd.read_excel(file_path) if file_format == 'xlsx' else pd.read_csv(file_path)
 
-    if (fileFormat == 'xlsx'):
-        dfa = pd.read_excel('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
-        dfb = pd.read_excel('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
-    elif (fileFormat == 'csv'):
-        dfa = pd.read_csv('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
-        dfb = pd.read_csv('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
-    else:
-        raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
+    df = pd.merge(dfs['Home'], dfs['Away'], on=['Time', 'IdPeriod', 'MatchId', 'ball_x', 'ball_y'])
 
-    df = pd.merge(dfa, dfb, on=['Time', 'IdPeriod', 'MatchId', 'ball_x', 'ball_y'])
+    player_columns = [col for col in df.columns if '_x' in col and ('home' in col.lower() or 'away' in col.lower())]
 
-    player_columns = [col for col in df.columns if ('_x' in col and ('home' in col.lower() or 'away' in col.lower()))]
+    distances = {
+        col: np.sqrt((df[col] - df['ball_x']) ** 2 + (df[col.replace('_x', '_y')] - df['ball_y']) ** 2)
+        for col in player_columns
+    }
 
-    distances = []
+    distance_df = pd.DataFrame(distances)
 
-    for col in player_columns:
-        player_team = 'Home' if 'home' in col.lower() else 'Away'
-        player_id = col.split('_')[1]
-        y_col = col.replace('_x', '_y')
+    distance_df.fillna(float("inf"), inplace=True)
 
-        df[f'distance_{player_id}'] = np.sqrt((df[col] - df['ball_x']) ** 2 + (df[y_col] - df['ball_y']) ** 2)
+    df['closest_player'] = distance_df.idxmin(axis=1)
+    df["closest_player"].fillna("", inplace=True)
+    df['possession_team'] = df['closest_player'].apply(lambda x: 'Home' if 'home' in x.lower() else 'Away')
 
-        distances.append((f'distance_{player_id}', player_team))
+    return df['possession_team'].value_counts(normalize=True).mul(100).to_dict()
 
-    distance_cols = [d[0] for d in distances]
-    df['closest_player'] = df[distance_cols].idxmin(axis=1)
 
-    df['possession_team'] = df['closest_player'].apply(
-        lambda x: next((team for dist_col, team in distances if dist_col == x), None)
-    )
+def create_passing_map(
+    player_number: int,
+    match_period: int,
+    match_number: int,
+    team_a: Literal["Home", "Away"],
+    file_format: Literal["csv", "xlsx"],
+    event_type: Literal["passes", "blocks"]
+) -> None:
+    """Generates a passing or blocking map for a specific player in a given match."""
 
-    possession_counts = df['possession_team'].value_counts(normalize=True) * 100
-
-    print(possession_counts.to_dict())
-
-def createPassingMap(playerNumber, matchPeriod, matchNumber, teamA, fileFormat, type):
-    if (teamA == 'Home'):
-        teamB = 'Away'
-    elif (teamA == 'Away'):
-        teamB = 'Home'
+    if team_a == "Home":
+        team_b = "Away"
+    elif team_a == "Away":
+        team_b = "Home"
     else:
         raise ValueError("Unsupported team. Use 'Home' or 'Away'.")
 
-    if (fileFormat == 'xlsx'):
-        dfa = pd.read_excel('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
-        dfb = pd.read_excel('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
-    elif (fileFormat == 'csv'):
-        dfa = pd.read_csv('match_' + str(matchNumber) + '/' + teamA + '.' + fileFormat)
-        dfb = pd.read_csv('match_' + str(matchNumber) + '/' + teamB + '.' + fileFormat)
+    file_path_a = f"match_{match_number}/{team_a}.{file_format}"
+    file_path_b = f"match_{match_number}/{team_b}.{file_format}"
+
+    if file_format == "xlsx":
+        df_a = pd.read_excel(file_path_a)
+        df_b = pd.read_excel(file_path_b)
+    elif file_format == "csv":
+        df_a = pd.read_csv(file_path_a)
+        df_b = pd.read_csv(file_path_b)
     else:
         raise ValueError("Unsupported file format. Use 'xlsx' or 'csv'.")
 
-    df = pd.merge(dfa, dfb, on=['Time', 'IdPeriod', 'MatchId', 'ball_x', 'ball_y'])
-    df = df[df['IdPeriod'] == matchPeriod]
+    df = pd.merge(df_a, df_b, on=["Time", "IdPeriod", "MatchId", "ball_x", "ball_y"])
+    df = df[df["IdPeriod"] == match_period]
 
-    player_columns = [col for col in df.columns if ('_x' in col and ('home' in col.lower() or 'away' in col.lower()))]
-    teamA_players = list(set([col.split('_')[1] for col in player_columns if teamA.lower() in col.lower()]))
-    teamB_players = list(set([col.split('_')[1] for col in player_columns if teamB.lower() in col.lower()]))
+    player_columns = [
+        col for col in df.columns
+        if "_x" in col and (team_a.lower() in col.lower() or team_b.lower() in col.lower())
+    ]
 
-    events = {
-        'passes': [],
-        'blocks': []
-    }
+    team_a_players = list(set(col.split("_")[1] for col in player_columns if team_a.lower() in col.lower()))
+    team_b_players = list(set(col.split("_")[1] for col in player_columns if team_b.lower() in col.lower()))
+
+    events: Dict[str, List[Dict[str, Tuple]]] = {"passes": [], "blocks": []}
 
     distances = {}
-
     for col in player_columns:
-        y_col = col.replace('_x', '_y')
-        player_name = col.split('_')[1]
-        df[f'distance_{player_name}'] = np.sqrt((df[col] - df['ball_x']) ** 2 + (df[y_col] - df['ball_y']) ** 2)
-        distances[player_name] = f'distance_{player_name}'
+        y_col = col.replace("_x", "_y")
+        player_name = col.split("_")[1]
+        distance_col = f"distance_{player_name}"
+        df[distance_col] = np.sqrt((df[col] - df["ball_x"]) ** 2 + (df[y_col] - df["ball_y"]) ** 2)
+        distances[player_name] = distance_col
 
-    df['closest_player'] = df[list(distances.values())].idxmin(axis=1)
-    df['closest_player'] = df['closest_player'].str.extract(r'distance_(\d+)')
+    df["closest_player"] = df[list(distances.values())].idxmin(axis=1)
+    df["closest_player"] = df["closest_player"].str.extract(r"distance_(\d+)")
 
-    df['prev_possessor'] = df['closest_player'].shift(1)
+    df["prev_possessor"] = df["closest_player"].shift(1)
 
     for idx, row in df.iterrows():
-        prev_possessor = row['prev_possessor']
-        current_possessor = row['closest_player']
+        prev_possessor = row["prev_possessor"]
+        current_possessor = row["closest_player"]
 
-        if prev_possessor == str(playerNumber) and current_possessor != str(playerNumber):
+        if prev_possessor == str(player_number) and current_possessor != str(player_number):
             event = {
-                'time': row['Time'],
-                'start_pos': (df.at[idx - 1, f'{teamA.lower()}_{playerNumber}_x'], df.at[idx - 1, f'{teamA.lower()}_{playerNumber}_y']),
-                'end_pos': (row['ball_x'], row['ball_y']),
-                'receiver': current_possessor
+                "time": row["Time"],
+                "start_pos": (
+                    df.at[idx - 1, f"{team_a.lower()}_{player_number}_x"],
+                    df.at[idx - 1, f"{team_a.lower()}_{player_number}_y"],
+                ),
+                "end_pos": (row["ball_x"], row["ball_y"]),
+                "receiver": current_possessor,
             }
 
-            if current_possessor in teamA_players:
-                events['passes'].append(event)
-            elif current_possessor in teamB_players:
-                events['blocks'].append(event)
+            if current_possessor in team_a_players:
+                events["passes"].append(event)
+            elif current_possessor in team_b_players:
+                events["blocks"].append(event)
 
-    pitch = mplsoccer.Pitch(pitch_type='impect', pitch_color='#030F37', line_color='white', pitch_length=105, pitch_width=68, axis=True)
+    # Plot the passing map
+    pitch = mplsoccer.Pitch(
+        pitch_type="impect",
+        pitch_color="#030F37",
+        line_color="white",
+        pitch_length=105,
+        pitch_width=68,
+        axis=True
+    )
 
     fig_width = 10
     fig_height = fig_width * (68 / 105)
     fig, ax = pitch.draw(figsize=(fig_width, fig_height))
 
-    if(type == 'passes'):
-        for p in events['passes']:
-            start_x, start_y = p['start_pos']
-            end_x, end_y = p['end_pos']
+    arrow_color = "#AFF500" if event_type == "passes" else "red"
 
-            pitch.arrows(start_x/100, start_y/100, end_x/100, end_y/100, width=2, headwidth=5, headlength=5, color='#AFF500', ax=ax)
-    elif(type == 'blocks'):
-        for p in events['blocks']:
-            start_x, start_y = p['start_pos']
-            end_x, end_y = p['end_pos']
+    for event in events[event_type]:
+        start_x, start_y = event["start_pos"]
+        end_x, end_y = event["end_pos"]
 
-            pitch.arrows(start_x / 100, start_y / 100, end_x / 100, end_y / 100, width=2, headwidth=5, headlength=5, color='red', ax=ax)
-    else:
-        raise ValueError('Unrecognized type')
+        pitch.arrows(
+            start_x / 100, start_y / 100, end_x / 100, end_y / 100,
+            width=2, headwidth=5, headlength=5, color=arrow_color, ax=ax
+        )
 
     plt.show()
 
-#createHeateMap(120, 1, 1, 'Home', 'csv')
-#total_distance_km = calcDistanceTraveled(364, 0, 'Away', 'xlsx')
+
+#create_heatmap(120, 1, 1, 'Home', 'csv')
+#total_distance_km = calculate_distance_traveled(364, 0, 'Away', 'xlsx')
 #print(f"Total Distance Traveled: {total_distance_km:.2f} km")
-#calcTotalTouches(827, 1, 'Home', 'csv')
-#calcTotalShots('Home', 2, 'csv', 1)
-#calcBallPossession(1, 'csv', 1)
-#createPassingMap(120, 1, 1, 'Home', 'csv', 'blocks')
+#total_touches = calculate_total_touches(827, 1, 'Home', 'csv')
+#print("Total Touches: ", total_touches)
+#total_shots = calculate_total_shots('Home', 2, 'csv', 1)
+#print("Total shots: ", total_shots)
+#ball_possession = calculate_ball_possession(1, 'csv')
+#print("Ball possession: ", ball_possession)
+#create_passing_map(120, 1, 1, 'Home', 'csv', 'passes')
